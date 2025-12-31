@@ -319,7 +319,7 @@ int main() {
     params.outerRadius = 50.0f;
     params.thickness = 10.0f;  
     params.toothWidth = 0.4f;  
-    params.segments = 3;       
+    params.segments = 7;       
     
     std::cout << "Generating gear...\n";
     std::cout << "Number of teeth: " << params.numTeeth << "\n";
@@ -332,6 +332,23 @@ int main() {
     stlFile << "endsolid gear\n";
     stlFile.close();
     std::cout << "Gear created successfully! (gear.stl)\n\n";
+
+    std::ofstream gearWithHoleFile("gearhole.stl");
+    if (!gearWithHoleFile.is_open()) {
+        std::cerr << "Error: Could not create gear_with_hole.stl!" << std::endl;
+        return 1;
+    }
+    
+    gearWithHoleFile << "solid gear_with_hole\n";
+    
+    std::cout << "Generating gear with mounting hole...\n";
+    std::cout << "Hole radius: 10\n";
+    
+    generateGearWithHole(gearWithHoleFile, params, 10.0f);
+    
+    gearWithHoleFile << "endsolid gear_with_hole\n";
+    gearWithHoleFile.close();
+    std::cout << "Gear with hole created successfully! (gear_with_hole.stl)\n";
     
     return 0;
 }

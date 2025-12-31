@@ -1,1 +1,1 @@
-import("cube.stl");
+import("gearhole.stl");
