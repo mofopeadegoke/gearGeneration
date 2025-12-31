@@ -14,6 +14,18 @@ struct Triangle{
 };
 
 
+struct GearParams {
+    int numTeeth;
+    float innerRadius;      
+    float pitchRadius;      
+    float outerRadius;      
+    float thickness;        
+    float toothWidth;       
+    int segments;        
+};
+
+
+
 void writeTriangle(std::ofstream &file, 
                    float normalX, float normalY, float normalZ,
                    float v1x, float v1y, float v1z,
@@ -45,7 +57,6 @@ Point3D calculateNormal(Point3D v1, Point3D v2, Point3D v3) {
         u.x * v.y - u.y * v.x
     };
     
-    // Normalize the normal vector
     float length = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
     if (length > 0) {
         normal.x /= length;
@@ -88,38 +99,150 @@ std::vector<Point3D> generateCirclePoints(float radius, int segments, float z) {
     return points;
 }
 
+std::vector<Point3D> generateGearProfile(GearParams params) {
+    std::vector<Point3D> profile;
+    
+    float anglePerTooth = 2.0f * M_PI / params.numTeeth;
+    
+    float toothArcAngle = anglePerTooth * params.toothWidth;
+    float valleyArcAngle = anglePerTooth * (1.0f - params.toothWidth);
+    
+    for (int tooth = 0; tooth < params.numTeeth; ++tooth) {
+        float toothStartAngle = tooth * anglePerTooth;
+        
+
+        for (int i = 0; i < params.segments; ++i) {
+            float angle = toothStartAngle + (toothArcAngle * i) / params.segments;
+            profile.push_back({
+                params.outerRadius * cos(angle),
+                params.outerRadius * sin(angle),
+                0 
+            });
+        }
+        
+        float valleyStartAngle = toothStartAngle + toothArcAngle;
+        for (int i = 0; i < params.segments; ++i) {
+            float angle = valleyStartAngle + (valleyArcAngle * i) / params.segments;
+            profile.push_back({
+                params.innerRadius * cos(angle),
+                params.innerRadius * sin(angle),
+                0
+            });
+        }
+    }
+    
+    return profile;
+}
+
+void generateGear(std::ofstream &file, GearParams params) {
+    std::vector<Point3D> bottomProfile = generateGearProfile(params);
+    
+    std::vector<Point3D> topProfile;
+    for (const auto& point : bottomProfile) {
+        topProfile.push_back({point.x, point.y, params.thickness});
+    }
+    
+    int numPoints = bottomProfile.size();
+    
+    for (int i = 0; i < numPoints; ++i) {
+        int next = (i + 1) % numPoints;
+        
+        Point3D b1 = bottomProfile[i];
+        Point3D b2 = bottomProfile[next];
+        Point3D t1 = topProfile[i];
+        Point3D t2 = topProfile[next];
+        Point3D normal1 = calculateNormal(b1, b2, t1);
+        
+        writeTriangle(file,
+                      normal1.x, normal1.y, normal1.z,
+                      b1.x, b1.y, b1.z,
+                      b2.x, b2.y, b2.z,
+                      t1.x, t1.y, t1.z);
+        
+        Point3D normal2 = calculateNormal(t1, b2, t2);
+        writeTriangle(file,
+                      normal2.x, normal2.y, normal2.z,
+                      t1.x, t1.y, t1.z,
+                      b2.x, b2.y, b2.z,
+                      t2.x, t2.y, t2.z);
+    }
+    Point3D bottomCenter = {0, 0, 0};
+    for (int i = 0; i < numPoints; ++i) {
+        int next = (i + 1) % numPoints;
+        writeTriangle(file,
+                      0, 0, -1,
+                      bottomCenter.x, bottomCenter.y, bottomCenter.z,
+                      bottomProfile[next].x, bottomProfile[next].y, bottomProfile[next].z,
+                      bottomProfile[i].x, bottomProfile[i].y, bottomProfile[i].z);
+    }
+    
+    Point3D topCenter = {0, 0, params.thickness};
+    for (int i = 0; i < numPoints; ++i) {
+        int next = (i + 1) % numPoints;
+        
+        writeTriangle(file,
+                      0, 0, 1,
+                      topCenter.x, topCenter.y, topCenter.z,
+                      topProfile[i].x, topProfile[i].y, topProfile[i].z,
+                      topProfile[next].x, topProfile[next].y, topProfile[next].z);
+    }
+}
+
+void generateGearWithHole(std::ofstream &file, GearParams params, float holeRadius) {
+    generateGear(file, params);
+    
+    std::vector<Point3D> bottomHole = generateCirclePoints(holeRadius, 32, 0);
+    std::vector<Point3D> topHole = generateCirclePoints(holeRadius, 32, params.thickness);
+    
+    int segments = 32;
+    for (int i = 0; i < segments; ++i) {
+        int next = (i + 1) % segments;
+        
+        Point3D b1 = bottomHole[i];
+        Point3D b2 = bottomHole[next];
+        Point3D t1 = topHole[i];
+        Point3D t2 = topHole[next];
+        Point3D normal1 = calculateNormal(b1, t1, b2);
+        writeTriangle(file,
+                      normal1.x, normal1.y, normal1.z,
+                      b1.x, b1.y, b1.z,
+                      t1.x, t1.y, t1.z,
+                      b2.x, b2.y, b2.z);
+        
+        Point3D normal2 = calculateNormal(t1, t2, b2);
+        writeTriangle(file,
+                      normal2.x, normal2.y, normal2.z,
+                      t1.x, t1.y, t1.z,
+                      t2.x, t2.y, t2.z,
+                      b2.x, b2.y, b2.z);
+    }
+}
+
 void generateDisk(std::ofstream &file, 
                   float innerRadius, 
                   float outerRadius, 
                   float z, 
                   int segments) {
     
-    // Step 1: Generate two circles at the same Z height
     std::vector<Point3D> innerCircle = generateCirclePoints(innerRadius, segments, z);
     std::vector<Point3D> outerCircle = generateCirclePoints(outerRadius, segments, z);
     
-    // Step 2: Create the flat disk/ring surface with triangles
-    // Connect inner and outer circles with 2 triangles per segment
     for (int i = 0; i < segments; ++i) {
-        int next = (i + 1) % segments;  // Wrap around to 0 at the end
+        int next = (i + 1) % segments;
         
         Point3D inner1 = innerCircle[i];
         Point3D inner2 = innerCircle[next];
         Point3D outer1 = outerCircle[i];
         Point3D outer2 = outerCircle[next];
         
-        // Triangle 1: inner-current → outer-current → outer-next
-        // Counter-clockwise from above (normal points up)
         writeTriangle(file,
-                      0, 0, 1,  // Normal points up
+                      0, 0, 1, 
                       inner1.x, inner1.y, inner1.z,
                       outer1.x, outer1.y, outer1.z,
                       outer2.x, outer2.y, outer2.z);
         
-        // Triangle 2: inner-current → outer-next → inner-next
-        // Counter-clockwise from above (normal points up)
         writeTriangle(file,
-                      0, 0, 1,  // Normal points up
+                      0, 0, 1, 
                       inner1.x, inner1.y, inner1.z,
                       outer2.x, outer2.y, outer2.z,
                       inner2.x, inner2.y, inner2.z);
@@ -131,21 +254,16 @@ void generateCylinder(std::ofstream &file,
                      float height, 
                      int segments) {
     
-    // Step 1: Generate circle points at bottom (z=0) and top (z=height)
     std::vector<Point3D> bottomCircle = generateCirclePoints(radius, segments, 0);
     std::vector<Point3D> topCircle = generateCirclePoints(radius, segments, height);
     
-    // Step 2: Create side faces (connecting bottom and top circles)
-    // Each segment creates 2 triangles forming a rectangle
     for (int i = 0; i < segments; ++i) {
-        int next = (i + 1) % segments;  // Wrap around to 0 at the end
+        int next = (i + 1) % segments; 
         
-        Point3D b1 = bottomCircle[i];      // Bottom current
-        Point3D b2 = bottomCircle[next];   // Bottom next
-        Point3D t1 = topCircle[i];         // Top current
-        Point3D t2 = topCircle[next];      // Top next
-        
-        // Triangle 1: bottom-current → bottom-next → top-current
+        Point3D b1 = bottomCircle[i];    
+        Point3D b2 = bottomCircle[next]; 
+        Point3D t1 = topCircle[i];         
+        Point3D t2 = topCircle[next];   
         Point3D normal1 = calculateNormal(b1, b2, t1);
         writeTriangle(file,
                       normal1.x, normal1.y, normal1.z,
@@ -153,7 +271,6 @@ void generateCylinder(std::ofstream &file,
                       b2.x, b2.y, b2.z,
                       t1.x, t1.y, t1.z);
         
-        // Triangle 2: top-current → bottom-next → top-next
         Point3D normal2 = calculateNormal(t1, b2, t2);
         writeTriangle(file,
                       normal2.x, normal2.y, normal2.z,
@@ -161,32 +278,26 @@ void generateCylinder(std::ofstream &file,
                       b2.x, b2.y, b2.z,
                       t2.x, t2.y, t2.z);
     }
-    
-    // Step 3: Create bottom cap (triangles from center to edge)
     Point3D bottomCenter = {0, 0, 0};
     for (int i = 0; i < segments; ++i) {
         int next = (i + 1) % segments;
         
         Point3D p1 = bottomCircle[i];
         Point3D p2 = bottomCircle[next];
-        
-        // Normal points down (negative Z)
+
         writeTriangle(file,
                       0, 0, -1,
                       bottomCenter.x, bottomCenter.y, bottomCenter.z,
-                      p2.x, p2.y, p2.z,  // Note: reversed order for correct winding
+                      p2.x, p2.y, p2.z, 
                       p1.x, p1.y, p1.z);
     }
     
-    // Step 4: Create top cap (triangles from center to edge)
     Point3D topCenter = {0, 0, height};
     for (int i = 0; i < segments; ++i) {
         int next = (i + 1) % segments;
         
         Point3D p1 = topCircle[i];
         Point3D p2 = topCircle[next];
-        
-        // Normal points up (positive Z)
         writeTriangle(file,
                       0, 0, 1,
                       topCenter.x, topCenter.y, topCenter.z,
@@ -196,29 +307,31 @@ void generateCylinder(std::ofstream &file,
 }
 
 int main() {
-    // Create and open the STL file
     std::ofstream stlFile("cube.stl");
-    
-    // Check if file was opened successfully
     if (!stlFile.is_open()) {
         std::cerr << "Error: Could not create STL file!" << std::endl;
         return 1;
     }
+     stlFile << "solid gear\n";
+    GearParams params;
+    params.numTeeth = 8;      
+    params.innerRadius = 30.0f;
+    params.outerRadius = 50.0f;
+    params.thickness = 10.0f;  
+    params.toothWidth = 0.4f;  
+    params.segments = 3;       
     
-    // Write the STL header
-    stlFile << "solid cube\n";
-
-
-    generateDisk(stlFile, 5.0f, 10.0f, 0.0f, 36);
-
-
-    // Write the STL footer
-    stlFile << "endsolid cube\n";
+    std::cout << "Generating gear...\n";
+    std::cout << "Number of teeth: " << params.numTeeth << "\n";
+    std::cout << "Inner radius: " << params.innerRadius << "\n";
+    std::cout << "Outer radius: " << params.outerRadius << "\n";
+    std::cout << "Thickness: " << params.thickness << "\n";
     
-    // Close the file
+    generateGear(stlFile, params);
+    
+    stlFile << "endsolid gear\n";
     stlFile.close();
-    
-    std::cout << "STL file 'cube.stl' created successfully!" << std::endl;
+    std::cout << "Gear created successfully! (gear.stl)\n\n";
     
     return 0;
 }
