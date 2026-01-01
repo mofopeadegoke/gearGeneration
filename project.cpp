@@ -187,16 +187,43 @@ void generateGear(std::ofstream &file, GearParams params) {
                       topProfile[next].x, topProfile[next].y, topProfile[next].z);
     }
 }
-
 void generateGearWithHole(std::ofstream &file, GearParams params, float holeRadius) {
-    generateGear(file, params);
+    std::vector<Point3D> bottomProfile = generateGearProfile(params);
+    std::vector<Point3D> topProfile;
+    for (const auto& point : bottomProfile) {
+        topProfile.push_back({point.x, point.y, params.thickness});
+    }
     
-    std::vector<Point3D> bottomHole = generateCirclePoints(holeRadius, 32, 0);
-    std::vector<Point3D> topHole = generateCirclePoints(holeRadius, 32, params.thickness);
+    int numPoints = bottomProfile.size();
     
-    int segments = 32;
-    for (int i = 0; i < segments; ++i) {
-        int next = (i + 1) % segments;
+    for (int i = 0; i < numPoints; ++i) {
+        int next = (i + 1) % numPoints;
+        
+        Point3D b1 = bottomProfile[i];
+        Point3D b2 = bottomProfile[next];
+        Point3D t1 = topProfile[i];
+        Point3D t2 = topProfile[next];
+        
+        Point3D normal1 = calculateNormal(b1, b2, t1);
+        writeTriangle(file,
+                      normal1.x, normal1.y, normal1.z,
+                      b1.x, b1.y, b1.z,
+                      b2.x, b2.y, b2.z,
+                      t1.x, t1.y, t1.z);
+        
+        Point3D normal2 = calculateNormal(t1, b2, t2);
+        writeTriangle(file,
+                      normal2.x, normal2.y, normal2.z,
+                      t1.x, t1.y, t1.z,
+                      b2.x, b2.y, b2.z,
+                      t2.x, t2.y, t2.z);
+    }
+    int holeSegments = 32;
+    std::vector<Point3D> bottomHole = generateCirclePoints(holeRadius, holeSegments, 0);
+    std::vector<Point3D> topHole = generateCirclePoints(holeRadius, holeSegments, params.thickness);
+    
+    for (int i = 0; i < holeSegments; ++i) {
+        int next = (i + 1) % holeSegments;
         
         Point3D b1 = bottomHole[i];
         Point3D b2 = bottomHole[next];
@@ -216,8 +243,54 @@ void generateGearWithHole(std::ofstream &file, GearParams params, float holeRadi
                       t2.x, t2.y, t2.z,
                       b2.x, b2.y, b2.z);
     }
+    
+    for (int i = 0; i < numPoints; ++i) {
+        int next = (i + 1) % numPoints;  
+        int holeIdx = (i * holeSegments) / numPoints;
+        int holeNext = (holeIdx + 1) % holeSegments;
+        
+        Point3D outerP1 = bottomProfile[i];
+        Point3D outerP2 = bottomProfile[next];
+        Point3D innerP1 = bottomHole[holeIdx];
+        Point3D innerP2 = bottomHole[holeNext];
+        
+        writeTriangle(file,
+                      0, 0, -1,
+                      outerP1.x, outerP1.y, outerP1.z,
+                      innerP1.x, innerP1.y, innerP1.z,
+                      outerP2.x, outerP2.y, outerP2.z);
+        
+        writeTriangle(file,
+                      0, 0, -1,  
+                      outerP2.x, outerP2.y, outerP2.z,
+                      innerP1.x, innerP1.y, innerP1.z,
+                      innerP2.x, innerP2.y, innerP2.z);
+    }
+    
+    for (int i = 0; i < numPoints; ++i) {
+        int next = (i + 1) % numPoints;
+        
+        int holeIdx = (i * holeSegments) / numPoints;
+        int holeNext = (holeIdx + 1) % holeSegments;
+        
+        Point3D outerP1 = topProfile[i];
+        Point3D outerP2 = topProfile[next];
+        Point3D innerP1 = topHole[holeIdx];
+        Point3D innerP2 = topHole[holeNext];
+        
+        writeTriangle(file,
+                      0, 0, 1, 
+                      outerP1.x, outerP1.y, outerP1.z,
+                      outerP2.x, outerP2.y, outerP2.z,
+                      innerP1.x, innerP1.y, innerP1.z);
+        
+        writeTriangle(file,
+                      0, 0, 1,
+                      outerP2.x, outerP2.y, outerP2.z,
+                      innerP2.x, innerP2.y, innerP2.z,
+                      innerP1.x, innerP1.y, innerP1.z);
+    }
 }
-
 void generateDisk(std::ofstream &file, 
                   float innerRadius, 
                   float outerRadius, 
