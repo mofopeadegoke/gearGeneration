@@ -379,6 +379,20 @@ void generateCylinder(std::ofstream &file,
     }
 }
 
+float calculateToothWidth(float radius,
+                          float baseWidth,
+                          float tipWidth,
+                          float currentRadius)
+{
+    if (currentRadius < 0) currentRadius = 0;
+    if (currentRadius > radius) currentRadius = radius;
+    float t = currentRadius / radius;
+
+    // Linear interpolation
+    return baseWidth + t * (tipWidth - baseWidth);
+}
+
+
 int main() {
     std::ofstream stlFile("cube.stl");
     if (!stlFile.is_open()) {
