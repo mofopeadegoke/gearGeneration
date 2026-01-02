@@ -13,18 +13,28 @@ struct Triangle{
     Point3D v1, v2, v3, normal;
 };
 
-
-struct GearParams {
-    int numTeeth;
-    float innerRadius;      
-    float pitchRadius;      
-    float outerRadius;      
-    float thickness;        
-    float toothWidth;       
-    int segments;        
+enum GearType {
+    SPUR,      // Straight teeth (default)
+    HELICAL,   // Angled teeth for smoother meshing
+    BEVEL,     // Conical gears for changing axis direction
+    WORM       // Screw-type gear for high reduction ratios
 };
 
-
+struct GearParams {
+    int numTeeth;           // How many teeth the gear has
+    float innerRadius;      // Radius of the gear body/hub
+    float pitchRadius;      // Middle of the tooth (where gears mesh)
+    float outerRadius;      // Tip of the tooth
+    float thickness;        // How thick the gear is (Z direction)
+    float toothWidth;       // What fraction of space each tooth takes (0-1)
+    int segments;           // How many points per tooth (smoothness)
+    GearType type;          // Type of gear (SPUR, HELICAL, etc.)
+    float helixAngle;       // Angle for helical gears (degrees)
+    float pressureAngle;    // Pressure angle for involute teeth (usually 20°)
+    bool useInvolute;       // Use involute tooth profile?
+    bool roundedTeeth;      // Add rounding to tooth tips and valleys?
+    float roundingRadius;   // Radius for tooth rounding
+};
 
 void writeTriangle(std::ofstream &file, 
                    float normalX, float normalY, float normalZ,
@@ -98,6 +108,8 @@ std::vector<Point3D> generateCirclePoints(float radius, int segments, float z) {
     }
     return points;
 }
+
+
 
 std::vector<Point3D> generateGearProfile(GearParams params) {
     std::vector<Point3D> profile;

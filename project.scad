@@ -1,1 +1,1 @@
-import("gearhole.stl");
+import("gear_advanced_with_hole.stl"); 
