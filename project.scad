@@ -1,1 +1,1 @@
-import("gear_advanced_with_hole.stl"); 
+import("gear_pressure_25.stl"); 
