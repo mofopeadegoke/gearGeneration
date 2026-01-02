@@ -452,7 +452,7 @@ int main() {
     // 5. Helical gear
     std::ofstream helicalFile("gear_helical2.stl");
     helicalFile << "solid helical_gear\n";
-    GearParams helical = {24, 38.0f, 48.0f, 53.0f, 20.0f, 0.4f, 3, HELICAL, 30.0f, 20.0f, false, false, 2.0f, 12.0f};
+    GearParams helical = {24, 38.0f, 48.0f, 53.0f, 20.0f, 0.4f, 3, HELICAL, 15.0f, 20.0f, false, false, 2.0f, 12.0f};
     generateGear(helicalFile, helical);
     helicalFile << "endsolid helical_gear\n";
     helicalFile.close();
