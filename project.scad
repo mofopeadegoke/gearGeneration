@@ -1,1 +1,1 @@
-import("gear_pressure_25.stl"); 
+import("gear_rounded3.stl"); 
